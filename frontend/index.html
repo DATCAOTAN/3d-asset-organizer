@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<!--
+  frontend/index.html
+  -----------------------------------------------------------------------
+  Giao diện người dùng của 3D Asset Organizer.
+
+  Chứa hai trạng thái giao diện:
+    1. #view-input  — Form nhập tên dự án + danh sách asset, nút gửi
+    2. #view-result — 4 phần kết quả sau khi AI phản hồi:
+         - Asset đã phân nhóm theo không gian
+         - Slug tên file gợi ý
+         - Metadata tóm tắt dự án
+         - Đề xuất cải thiện
+  Xử lý: loading state, lỗi API, validate input rỗng, nút reset.
+  Style tách ra style.css. Logic tách ra app.js.
+  -----------------------------------------------------------------------
+-->
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+        content="3D Asset Organizer — Dùng AI (Google Gemini) để tự động phân loại, đặt tên và tổ chức asset không gian 3D của bạn." />
+  <title>3D Asset Organizer — AI Phân Loại Asset</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon" aria-hidden="true">⬡</span>
+        <span class="logo-text">3D Asset Organizer</span>
+      </div>
+      <span class="header-badge">Powered by Google Gemini</span>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ================================================================
+         VIEW 1: NHẬP LIỆU
+         ================================================================ -->
+    <section id="view-input" class="view view--active" aria-label="Nhập dữ liệu">
+
+      <div class="card input-card">
+        <h1 class="card__title">Phân loại Asset 3D bằng AI</h1>
+        <p class="card__subtitle">
+          Nhập danh sách asset của dự án — AI sẽ tự động phân nhóm,
+          gợi ý tên file và đề xuất cách tổ chức tối ưu.
+        </p>
+
+        <form id="form-organize" novalidate>
+
+          <!-- Tên dự án -->
+          <div class="field-group">
+            <label class="field-label" for="input-project-name">
+              Tên dự án <span class="required" aria-hidden="true">*</span>
+            </label>
+            <input
+              id="input-project-name"
+              type="text"
+              class="field-input"
+              placeholder="Ví dụ: Căn hộ Vinhomes Central Park tầng 12"
+              maxlength="200"
+              autocomplete="off"
+            />
+            <span id="error-project-name" class="field-error" role="alert" aria-live="polite"></span>
+          </div>
+
+          <!-- Danh sách asset -->
+          <div class="field-group">
+            <label class="field-label" for="input-assets">
+              Danh sách asset <span class="required" aria-hidden="true">*</span>
+            </label>
+            <textarea
+              id="input-assets"
+              class="field-textarea"
+              rows="8"
+              placeholder="Nhập asset theo bất kỳ định dạng nào:&#10;&#10;Sofa 3 chỗ, Bàn cà phê, Đèn sàn&#10;Giường đôi&#10;- Tủ quần áo&#10;- Điều hòa 2HP&#10;&#10;Hoặc JSON: [&quot;Sofa&quot;, &quot;Bàn trà&quot;]"
+            ></textarea>
+            <span id="error-assets" class="field-error" role="alert" aria-live="polite"></span>
+            <p class="field-hint">
+              Chấp nhận: phân cách bằng dấu phẩy, xuống dòng, gạch đầu dòng, hoặc JSON array.
+            </p>
+          </div>
+
+          <!-- API Error banner (hiện khi API fail) -->
+          <div id="api-error-banner" class="error-banner" role="alert" aria-live="assertive" hidden>
+            <span class="error-banner__icon" aria-hidden="true">⚠</span>
+            <span id="api-error-message" class="error-banner__text"></span>
+          </div>
+
+          <!-- Nút gửi -->
+          <button id="btn-submit" type="submit" class="btn btn--primary">
+            <span id="btn-submit-text">Phân tích bằng AI</span>
+            <span id="btn-submit-spinner" class="spinner" aria-hidden="true" hidden></span>
+          </button>
+
+        </form>
+
+        <!-- Dữ liệu mẫu để thử nhanh -->
+        <div class="sample-section">
+          <span class="sample-label">Thử với dữ liệu mẫu:</span>
+          <button id="btn-load-sample" class="btn btn--ghost" type="button">
+            Dùng dữ liệu mẫu
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ================================================================
+         VIEW 2: KẾT QUẢ
+         ================================================================ -->
+    <section id="view-result" class="view" aria-label="Kết quả phân tích" hidden>
+
+      <!-- Header kết quả -->
+      <div class="result-header">
+        <div class="result-header__info">
+          <h2 id="result-project-name" class="result-project-name"></h2>
+          <div id="result-meta-summary" class="result-meta-summary"></div>
+        </div>
+        <button id="btn-reset" class="btn btn--ghost" type="button">
+          ← Phân tích lại
+        </button>
+      </div>
+
+      <div class="result-grid">
+
+        <!-- ── Phần 1: Asset đã phân nhóm ── -->
+        <div class="result-card result-card--full">
+          <h3 class="result-card__title">
+            <span class="result-card__icon" aria-hidden="true">🗂</span>
+            Asset đã phân nhóm theo không gian
+          </h3>
+          <div id="result-groups" class="groups-container"></div>
+        </div>
+
+        <!-- ── Phần 2: Slug gợi ý ── -->
+        <div class="result-card">
+          <h3 class="result-card__title">
+            <span class="result-card__icon" aria-hidden="true">🔗</span>
+            Slug tên file gợi ý
+          </h3>
+          <div id="result-slugs" class="slug-table-wrapper"></div>
+        </div>
+
+        <!-- ── Phần 3: Metadata dự án ── -->
+        <div class="result-card">
+          <h3 class="result-card__title">
+            <span class="result-card__icon" aria-hidden="true">📋</span>
+            Metadata tóm tắt dự án
+          </h3>
+          <div id="result-metadata" class="metadata-container"></div>
+        </div>
+
+        <!-- ── Phần 4: Đề xuất cải thiện ── -->
+        <div class="result-card result-card--full">
+          <h3 class="result-card__title">
+            <span class="result-card__icon" aria-hidden="true">💡</span>
+            Đề xuất cải thiện
+          </h3>
+          <ol id="result-improvements" class="improvements-list"></ol>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>3D Asset Organizer &copy; 2024 — AI Engine: Google Gemini</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
