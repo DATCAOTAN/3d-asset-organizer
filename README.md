@@ -37,7 +37,7 @@ gợi ý tên file chuẩn hóa (slug), tóm tắt metadata dự án, và đề 
 ### Bước 1 — Tải source code
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/DATCAOTAN/3d-asset-organizer.git
 cd 3d-asset-organizer
 ```
 
