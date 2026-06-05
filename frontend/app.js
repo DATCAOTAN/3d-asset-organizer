@@ -5,7 +5,7 @@
  *
  * Chịu trách nhiệm:
  *   - Validate input phía client trước khi gửi (input rỗng, tên dự án rỗng)
- *   - Gọi backend API tại http://localhost:8000/api/assets/organize
+ *   - Gọi backend API tại cùng domain với frontend (tự động detect)
  *   - Quản lý trạng thái UI: loading, error, result, reset
  *   - Render 4 phần kết quả từ API response:
  *       1. Grouped assets (asset đã phân nhóm)
@@ -31,8 +31,12 @@
    CONSTANTS
    ========================================================= */
 
-/** Địa chỉ backend API */
-const API_BASE_URL = "http://localhost:8000";
+/**
+ * Địa chỉ backend API — tự động dùng đúng domain:
+ *   - localhost:8000 khi chạy local
+ *   - threed-asset-organizer.onrender.com khi deploy
+ */
+const API_BASE_URL = window.location.origin;
 const API_ORGANIZE_URL = `${API_BASE_URL}/api/assets/organize`;
 
 /** Dữ liệu mẫu để test nhanh */
@@ -183,7 +187,7 @@ async function callOrganizeAPI(projectName, rawAssets) {
   } catch (networkError) {
     throw new Error(
       "Không thể kết nối đến server. " +
-      "Vui lòng kiểm tra server đang chạy tại http://localhost:8000."
+      "Vui lòng kiểm tra server đang chạy."
     );
   }
 
